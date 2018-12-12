@@ -1,6 +1,6 @@
 import * as esprima from 'esprima';
 
-var result=[];
+let result=[];
 const parseCode = (codeToParse) => {
     if (codeToParse.length==0 || codeToParse==''){ //empty input
         return [];
@@ -14,6 +14,7 @@ const parseCode = (codeToParse) => {
 };
 
 export {parseCode};
+export {result};
 
 const statementType = {
     'VariableDeclaration' : decStatement,
@@ -24,8 +25,13 @@ const statementType = {
     'ForStatement' : forStatement,
     'AssignmentExpression' : assStatement,
     'UpdateExpression' : assStatement,
-    'Program' : headerLines
+    'Program' : headerLines,
+    'FunctionDeclaration': headerLines
 };
+
+let mix=false;
+let mixFuncIndex=0;
+let wasinFunction=false;
 
 function startBuildingTable(parsedCode){
     if ((parsedCode.body)[0].type=='FunctionDeclaration') { //function declaration
@@ -33,23 +39,27 @@ function startBuildingTable(parsedCode){
         bodyLines((parsedCode.body)[0].body.body);
     }
     else{
+        mixFuncIndex =checkIfMixed(parsedCode);
         bodyLines(parsedCode.body);
     }
     return result;
 }
 
 function parseData(data){
+
     return statementType[data.type](data);
 }
 
 //find value of string
 function valueReturn(statement) {
     var value='';
+
+
     if (statement.type=='Literal' || statement.type=='Identifier'){ //SINGLE VALUE
         if (statement.name!=null) //var
             value = statement.name;
-        if (statement.value!=null) //number
-            value = statement.value;
+        if (statement.raw!=null) //number
+            value = statement.raw;
     }
     else{
         value=longValue(statement);
@@ -81,7 +91,7 @@ function longValue(statement) {
 
 //find value of ComputedMemberExpression
 function memberExpressionValue(statement){
-    if (statement.type!='LogicalExpression') { //member expression value;
+    if (statement.type=='MemberExpression') { //member expression value;
         let value = '';
         if (statement.property.name != null)
             value = statement.object.name + '[' + statement.property.name + ']';
@@ -97,19 +107,29 @@ function memberExpressionValue(statement){
 }
 
 function LogicalExpression(statement){
-    return valueReturn(statement.left)+statement.operator+valueReturn(statement.right);
+    if (statement.type== 'LogicalExpression')
+        return valueReturn(statement.left)+statement.operator+valueReturn(statement.right);
+    else
+        return arrayValue(statement);
 }
 //function decleration
 function headerLines(parsedCode){
-    let name=(parsedCode.body)[0].id.name;
+    let name='';
+    var statement;
+    if (!mix) {
+        name = (parsedCode.body)[0].id.name;
+        statement = (parsedCode.body)[0];}
+    else {
+        name = parsedCode.id.name;
+        statement = parsedCode;
+    }
 
-    //put the header of the function in the table:
-    insertIntoResult(parsedCode,(parsedCode.body)[0].type, name, '', '');
+    insertIntoResult(parsedCode,statement.type, name, '', '');
     //put the function's params in the table:
-    var params_amount=(parsedCode.body)[0].params.length;
+    var params_amount=statement.params.length;
 
     for (let i=0; i<params_amount ; i++){
-        let name=(parsedCode.body)[0].params[i].name;
+        let name=statement.params[i].name;
         insertIntoResult(parsedCode,'variable declaration', name, '', '');
     }
 }
@@ -182,13 +202,23 @@ function bodyLines(statement)
 {
     let body=statement;
     let num_statements = body.length;
+    let i=0;
     if (num_statements!=null) {
-        for (let i = 0; i < num_statements; i++) {
+        for (i = 0; i < num_statements; i++) {
             checkStatement(body[i]);
         }
     }
     else{
         checkStatement(body);
+    }
+    bodyLinesContinue(statement,i,num_statements);
+
+}
+
+function bodyLinesContinue(statement,i,num_statements){
+    if (mix==true && i==num_statements  && wasinFunction==false) { //if itx mix go to the function declaration..
+        wasinFunction=true;
+        bodyLines(statement[mixFuncIndex].body.body);
     }
 }
 
@@ -203,17 +233,42 @@ function decStatement(statements){ //can be several decleration statement in the
     for (let i =0; i<num_statements ; i++){
         let statement = (statements.declarations)[i];
         var varValue;
-        if (statement.init!=null){
-            varValue = valueReturn(statement.init);
-            insertIntoResult(statement,'variable declaration', statement.id.name, '', varValue);
 
+        if (statement.init!=null){ //has value
+            if (statement.init.elements!=null){ //array
+                var array = arrayValue(statement);
+                insertIntoResult(statement, 'variable declaration', statement.id.name, '', array);
+            }
+            else {
+                varValue = valueReturn(statement.init);
+                insertIntoResult(statement, 'variable declaration', statement.id.name, '', varValue);
+            }
         }
-        else{
+        else{ //doesnt have value
             insertIntoResult(statement,'variable declaration', statement.id.name, '',  'null(or nothing)');
-        }
-    }
-}
+        }}}
 
+
+//x=[1,2,3]
+function arrayValue(statement){
+    var elementsValue='[';
+    var elements='';
+    if (statement.init!=null)
+        elements=statement.init.elements;
+    else
+        elements=statement.elements;
+    for (let j=0; j<elements.length; j++) {
+        if (elements[j].value != null)
+            elementsValue += elements[j].value;
+        else
+            elementsValue += elements[j].name;
+        if (j<elements.length-1)
+            elementsValue+=',';
+    }
+    elementsValue+=']';
+    return elementsValue;
+
+}
 function assStatement(statement){
     if (statement.expression.type=='AssignmentExpression') {//asisgnment statement
         let name = valueReturn(statement.expression.left);
@@ -270,6 +325,7 @@ function ifAlternates(statement){
     }
     //IF THERE'S  else:
     if (statement.alternate.body!=null){
+        insertIntoResult(statement,'else statement', '', '','');
         bodyLines(statement.alternate.body);
     }
     else{
@@ -327,4 +383,14 @@ function forStatementAction(statement){
 }
 function insertIntoResult(parsedCode,Type,Name, Condition, Value ){
     result.push({'Line':parsedCode.loc.start.line, 'Type' :Type, 'Name': Name, 'Condition': Condition, 'Value':Value});
+}
+
+function checkIfMixed(parsedCode){
+    for (let i=0; i<parsedCode.body.length; i++){
+        if (parsedCode.body[i].type=='FunctionDeclaration' && i>0){
+            mix=true;
+            return i;
+        }
+    }
+    return -1;
 }

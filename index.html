@@ -5,43 +5,26 @@
 
     <style>
         table {
-            width: 70%;
-            height: 70%;
+            width: 100%;
+            height: 100%;
         }
 
         .textAreaWrapper {
             width: 100%;
             height: 80vh;
         }
-        td{
-            border: 1px pink;
-            text-align: center;
-            padding: 8px;
 
-        }
-        th{
-            border: 1px pink;
-            text-align: center;
-            padding: 8px;
-            background-color: #23afaf;
-        }
-
-        tr:nth-child(even) {
-            background-color: lightgray;
-        }
-        .textAreaWrapper {
-            width: 100%;
-            height: 80vh;
-        }
         textarea {
             width: 80%;
             height: 95%;
         }
+        span{
+            display:block;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
-<div id="finalTable">
-</div>
 <table>
     <tr>
         <td>
@@ -51,7 +34,7 @@
         </td>
         <td>
             <div>
-                <label>Parsed code here</label>
+                <label></label>
             </div>
         </td>
     </tr>
@@ -63,14 +46,15 @@
         </td>
         <td>
             <div class="textAreaWrapper">
-                <textarea id="parsedCode" title="Parse code"></textarea>
+                <div id="newFunction" title="Parse code"></div>
             </div>
         </td>
+        <textarea id="inputBox" title="Parse code"></textarea>
     </tr>
     <tr>
         <td>
             <div>
-                <button id="codeSubmissionButton">Parse code</button>
+                <button id="codeSubmissionButton">Substitute code</button>
             </div>
         </td>
         <td>

@@ -2,8 +2,12 @@ import assert from 'assert';
 import {parseCode} from '../src/js/code-analyzer';
 //import {describe} from 'nyc';
 //import {startBuildingTable} from '../src/js/code-analyzer';
+import {convertToString} from '../src/js/symbolicSubstitution';
+import {symbolicSubstitutionn} from '../src/js/symbolicSubstitution';
 
-//check output table
+
+
+//check output table - FIRST ASSIGNMENT
 describe('1', () => {
     it('is parsing "no lines" code(input) correctly', () => {
         assert.equal(
@@ -13,8 +17,8 @@ describe('1', () => {
     });
     it('is parsing a short variable declaration correctly', () => {
         assert.equal(
-            JSON.stringify(parseCode('let a = 1;')),
-            '[{"Line":1,"Type":"variable declaration","Name":"a","Condition":"","Value":'+1+'}]'
+            JSON.stringify(parseCode('let a = true;')),
+            '[{"Line":1,"Type":"variable declaration","Name":"a","Condition":"","Value":'+'"true"'+'}]'
         );
     });
 });
@@ -149,6 +153,7 @@ describe('10', () => {
             '{"Line":5,"Type":"else if statement","Name":"","Condition":"x >= 5","Value":""},' +
             '{"Line":6,"Type":"assignment expression","Name":"y","Condition":"","Value":"x"},' +
             '{"Line":7,"Type":"assignment expression","Name":"y","Condition":"","Value":"layla"},' +
+            '{"Line":5,"Type":"else statement","Name":"","Condition":"","Value":""},' +
             '{"Line":10,"Type":"assignment expression","Name":"x","Condition":"","Value":"sora"},' +
             '{"Line":11,"Type":"assignment expression","Name":"x","Condition":"","Value":"layla"}]'
         );});});
@@ -162,4 +167,180 @@ describe('11', () => {
     });
 
 });
+
+
+//SECOND ASSIGNMENT
+describe('12', () => {
+    it('is substituting a function line correctly', () => {
+        let codeToParse='function x(y){'+'\n'+'return y;'+'\n'+'}';
+        let table =parseCode(codeToParse); //make table
+        assert.equal(
+            convertToString(symbolicSubstitutionn(codeToParse,1,table)),'function x(y){\n' +
+                'return y;\n' +
+                '}'
+
+        );
+    });
+
+});
+describe('13', () => {
+
+    it('is substituting LOCAL declarations and assignment line correctly', () => {
+        let codeToParse='function func(x,y){\n' +
+            'let a=x;\n' +
+            'let b;\n' +
+            'b=y;\n' +
+            'y=b;\n' +
+            '}';
+        let table =parseCode(codeToParse); //make table
+        assert.equal(
+            convertToString(symbolicSubstitutionn(codeToParse,1,table)),'function func(x,y){\n' +
+            'y=(y);\n' +
+            '}'
+
+        );
+    });
+
+});
+describe('14', () => {
+    it('is substituting GLOBAL declarations and assignment line correctly', () => {
+        let codeToParse=
+            'let a=5;\n'+
+            'let x;\n'+
+            'x=true;';
+
+        let table =parseCode(codeToParse); //make table
+        assert.equal(
+            convertToString(symbolicSubstitutionn(codeToParse,1,table)),
+            'let a=5;\n' +
+            'let x;\n' +
+            'x=true;'
+
+        );
+    });
+
+});
+
+describe('15', () => {
+    it('is substituting if statement with Logical expression correctly', () => {
+        let codeToParse=
+            'function func(x,y){\n'+
+            'if (x>y && y[1]==0)\n'+
+            '  return true;\n'+
+            '}';
+
+        let table =parseCode(codeToParse); //make table
+        assert.equal(
+            convertToString(symbolicSubstitutionn(codeToParse,'1, [1]',table)),
+            'function func(x,y){\n' +
+            'if ((x > y) && (y[1] == 0))\n' +
+            '  return true;\n' +
+            '}'
+
+        );
+    });
+
+});
+describe('16', () => {
+    it('is substituting if statement with boolean expression correctly', () => {
+        let codeToParse=
+            'function func(x,y){\n'+
+            'if (x==true)\n'+
+            '  return 5+3\n'+
+            '}';
+
+        let table =parseCode(codeToParse); //make table
+        assert.equal(
+            convertToString(symbolicSubstitutionn(codeToParse,'true, [1]',table)),
+            'function func(x,y){\n' +
+            'if (x == true)\n' +
+            '  return 5+3;\n' +
+            '}'
+
+        );
+    });
+
+});
+describe('16', () => {
+    it('is substituting if statement with boolean expression correctly', () => {
+        let codeToParse=
+            'function func(x,y){\n'+
+            'if (x==true)\n'+
+            '  return 5+3\n'+
+            '}';
+
+        let table =parseCode(codeToParse); //make table
+        assert.equal(
+            convertToString(symbolicSubstitutionn(codeToParse,'true, [1]',table)),
+            'function func(x,y){\n' +
+            'if (x == true)\n' +
+            '  return 5+3;\n' +
+            '}'
+
+        );
+    });
+
+});
+
+describe('17', () => {
+    it('is substituting if statement with boolean expression correctly - second form', () => {
+        let codeToParse=
+            'function func(bool){\n'+
+            'if (bool)\n'+
+            '  bool=false;\n'+
+            '}';
+
+        let table =parseCode(codeToParse); //make table
+        assert.equal(
+            convertToString(symbolicSubstitutionn(codeToParse,'true, [1]',table)),
+            'function func(bool){\n' +
+            'if (bool)\n' +
+            '  bool=false;\n' +
+            '}'
+
+        );
+    });
+});
+
+describe('18', () => {
+    it('is substituting if statement with array assignment correctly', () => {
+        let codeToParse=
+
+            'function func(){\n' +
+            'let arr = [true,true];\n' +
+            'let index=0;\n' +
+            'if(arr[index]==true)\n' +
+            'return arr[1];\n' +
+            '}';
+        let tablee =parseCode(codeToParse); //make table
+        assert.equal(
+            convertToString(symbolicSubstitutionn(codeToParse, '1',tablee)),
+            'function func(){\n' +
+            'if([true,true][0] == true)\n' +
+            'return ([true,true][1]);\n' +
+            '}'
+        );
+    }); });
+
+
+describe('19', () => {
+    it('is substituting array assignments correctly correctly', () => {
+        it('is substituting array assignments correctly correctly', () => {
+            let codeToParse=
+                'function x(a,b){\n' +
+                'let c=1;\n' +
+                'a[c]=a[b];\n' +
+                'if (a[c]==a[b])\n' +
+                'return true;\n' +  '} \n';
+            let tablee =parseCode(codeToParse); //make table
+            let finalCode=symbolicSubstitutionn(codeToParse, '["a",1,true],0',tablee);
+            let endCode=convertToString(finalCode);
+            assert.deepEqual(
+                convertToString(endCode),
+                'function x(a,b){\n' +
+            'a[1]=a[b];\n' +
+            'if (a[1] == a[b])\n' +
+            'return true;\n' +
+            '}'
+            );      });  });  });
 
